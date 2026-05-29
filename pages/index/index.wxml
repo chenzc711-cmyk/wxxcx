@@ -1,0 +1,211 @@
+<view class="page">
+  <view class="hero">
+    <view>
+      <text class="hero__eyebrow">Warehouse Console</text>
+      <view class="hero__title">仓库管理系统</view>
+      <view class="hero__desc">库存、金额、渠道商款项与出入库流水一屏管理</view>
+    </view>
+    <view class="hero__badge">本地数据</view>
+  </view>
+
+  <scroll-view class="nav" scroll-x enhanced show-scrollbar="false">
+    <view
+      wx:for="{{tabs}}"
+      wx:key="key"
+      class="nav__item {{activeTab === item.key ? 'nav__item--active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="switchTab"
+    >{{item.label}}</view>
+  </scroll-view>
+
+  <block wx:if="{{activeTab === 'dashboard'}}">
+    <view class="section-title">仪表盘数据</view>
+    <view class="metrics">
+      <view class="metric-card metric-card--primary">
+        <text class="metric-card__label">总库存数量</text>
+        <text class="metric-card__value">{{dashboard.totalStock}}</text>
+        <text class="metric-card__hint">所有商品在库数量合计</text>
+      </view>
+      <view class="metric-card">
+        <text class="metric-card__label">库存总金额</text>
+        <text class="metric-card__value">¥{{dashboard.totalAmount}}</text>
+        <text class="metric-card__hint">在库数量 × 登记单价</text>
+      </view>
+      <view class="metric-card metric-card--warning">
+        <text class="metric-card__label">库存预警</text>
+        <text class="metric-card__value">{{dashboard.warningCount}}</text>
+        <text class="metric-card__hint">低于预警线的商品</text>
+      </view>
+      <view class="metric-card">
+        <text class="metric-card__label">商品总数</text>
+        <text class="metric-card__value">{{dashboard.productCount}}</text>
+        <text class="metric-card__hint">已登记 SKU 数</text>
+      </view>
+      <view class="metric-card">
+        <text class="metric-card__label">仓库数量</text>
+        <text class="metric-card__value">{{dashboard.warehouseCount}}</text>
+        <text class="metric-card__hint">当前维护仓库数</text>
+      </view>
+    </view>
+
+    <view class="panel">
+      <view class="panel__header">
+        <text class="panel__title">渠道商剩余款项合计</text>
+        <text class="panel__total">¥{{dashboard.channelTotal}}</text>
+      </view>
+      <view class="channel-row" wx:for="{{channelSummaries}}" wx:key="type">
+        <view>
+          <view class="channel-row__name">{{item.label}}</view>
+          <view class="channel-row__count">{{item.count}} 位渠道商</view>
+        </view>
+        <view class="channel-row__amount">¥{{item.amount}}</view>
+      </view>
+    </view>
+
+    <view class="panel" wx:if="{{warningProducts.length}}">
+      <view class="panel__header">
+        <text class="panel__title">库存预警商品</text>
+      </view>
+      <view class="warning-item" wx:for="{{warningProducts}}" wx:key="id">
+        <text>{{item.name}}</text>
+        <text>{{item.stock}} / {{item.warningLine}}</text>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{activeTab === 'inventory'}}">
+    <view class="section-title">库存数量与商品信息</view>
+    <view class="panel form-panel">
+      <view class="form-grid">
+        <view class="field">
+          <text>商品名称</text>
+          <input value="{{productForm.name}}" data-field="name" bindinput="onProductInput" placeholder="如：洗护套装" />
+        </view>
+        <view class="field">
+          <text>商品编码</text>
+          <input value="{{productForm.sku}}" data-field="sku" bindinput="onProductInput" placeholder="SKU 编码" />
+        </view>
+        <view class="field">
+          <text>所属仓库</text>
+          <picker range="{{warehouseNames}}" value="{{productForm.warehouseIndex}}" bindchange="onWarehousePick">
+            <view class="picker-value">{{selectedWarehouseName}}</view>
+          </picker>
+        </view>
+        <view class="field">
+          <text>在库数量</text>
+          <input type="number" value="{{productForm.stock}}" data-field="stock" bindinput="onProductInput" placeholder="0" />
+        </view>
+        <view class="field">
+          <text>登记单价</text>
+          <input type="digit" value="{{productForm.price}}" data-field="price" bindinput="onProductInput" placeholder="0.00" />
+        </view>
+        <view class="field">
+          <text>预警线</text>
+          <input type="number" value="{{productForm.warningLine}}" data-field="warningLine" bindinput="onProductInput" placeholder="10" />
+        </view>
+      </view>
+      <view class="form-actions">
+        <button class="btn btn--ghost" bindtap="resetProductForm">清空</button>
+        <button class="btn btn--primary" bindtap="saveProduct">{{editingProductId ? '保存修改' : '新增商品'}}</button>
+      </view>
+    </view>
+
+    <view class="product-card" wx:for="{{products}}" wx:key="id">
+      <view class="product-card__main">
+        <view>
+          <view class="product-card__name">{{item.name}}</view>
+          <view class="product-card__meta">{{item.sku}} · {{item.warehouseName}}</view>
+        </view>
+        <view class="product-card__amount">¥{{item.amount}}</view>
+      </view>
+      <view class="product-card__stats">
+        <text>在库：{{item.stock}}</text>
+        <text>单价：¥{{item.price}}</text>
+        <text>预警：{{item.warningLine}}</text>
+      </view>
+      <view class="product-card__actions">
+        <button size="mini" class="btn btn--ghost" data-id="{{item.id}}" bindtap="editProduct">编辑</button>
+        <button size="mini" class="btn btn--danger" data-id="{{item.id}}" bindtap="deleteProduct">删除</button>
+      </view>
+    </view>
+  </block>
+
+  <block wx:elif="{{activeTab === 'warehouses'}}">
+    <view class="section-title">仓库数量</view>
+    <view class="panel form-panel">
+      <view class="field">
+        <text>仓库名称</text>
+        <input value="{{warehouseForm.name}}" data-field="name" bindinput="onWarehouseInput" placeholder="如：主仓 / 台州仓" />
+      </view>
+      <view class="field">
+        <text>仓库位置</text>
+        <input value="{{warehouseForm.location}}" data-field="location" bindinput="onWarehouseInput" placeholder="仓库地址或区域" />
+      </view>
+      <button class="btn btn--primary btn--full" bindtap="saveWarehouse">新增仓库</button>
+    </view>
+    <view class="warehouse-card" wx:for="{{warehouses}}" wx:key="id">
+      <view>
+        <view class="warehouse-card__name">{{item.name}}</view>
+        <view class="warehouse-card__location">{{item.location}}</view>
+      </view>
+      <view class="warehouse-card__stock">{{item.stock}} 件</view>
+    </view>
+  </block>
+
+  <block wx:elif="{{activeTab === 'channels'}}">
+    <view class="section-title">渠道商剩余款项</view>
+    <view class="panel form-panel">
+      <view class="field">
+        <text>渠道商名称</text>
+        <input value="{{channelForm.name}}" data-field="name" bindinput="onChannelInput" placeholder="渠道商名称" />
+      </view>
+      <view class="field">
+        <text>渠道类型</text>
+        <picker range="{{channelTypeLabels}}" value="{{channelForm.typeIndex}}" bindchange="onChannelTypePick">
+          <view class="picker-value">{{selectedChannelTypeLabel}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <text>剩余款项</text>
+        <input type="digit" value="{{channelForm.balance}}" data-field="balance" bindinput="onChannelInput" placeholder="0.00" />
+      </view>
+      <button class="btn btn--primary btn--full" bindtap="saveChannel">新增渠道商</button>
+    </view>
+    <view class="channel-card" wx:for="{{channels}}" wx:key="id">
+      <view>
+        <view class="channel-card__name">{{item.name}}</view>
+        <view class="channel-card__type">{{item.typeLabel}}</view>
+      </view>
+      <view class="channel-card__balance">¥{{item.balance}}</view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="section-title">{{recordTitle}}</view>
+    <view class="panel form-panel">
+      <view class="field">
+        <text>商品</text>
+        <picker range="{{productNames}}" value="{{recordForm.productIndex}}" bindchange="onRecordProductPick">
+          <view class="picker-value">{{selectedProductName}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <text>数量</text>
+        <input type="number" value="{{recordForm.quantity}}" data-field="quantity" bindinput="onRecordInput" placeholder="0" />
+      </view>
+      <view class="field">
+        <text>经办人 / 备注</text>
+        <input value="{{recordForm.remark}}" data-field="remark" bindinput="onRecordInput" placeholder="填写经办人或备注" />
+      </view>
+      <button class="btn btn--primary btn--full" bindtap="saveRecord">登记{{recordTitle}}</button>
+    </view>
+
+    <view class="record-card" wx:for="{{visibleRecords}}" wx:key="id">
+      <view>
+        <view class="record-card__name">{{item.productName}}</view>
+        <view class="record-card__meta">{{item.date}} · {{item.remark}}</view>
+      </view>
+      <view class="record-card__qty">{{item.quantity}} 件</view>
+    </view>
+  </block>
+</view>
