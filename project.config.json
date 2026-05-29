@@ -13,6 +13,6 @@
   "compileType": "miniprogram",
   "libVersion": "3.4.10",
   "appid": "touristappid",
-  "projectname": "inventory-mini-program",
+  "projectname": "warehouse-mini-program",
   "condition": {}
 }
