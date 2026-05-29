@@ -1,0 +1,35 @@
+name: Build Mini Program Code Package
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest merged code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate project files
+        run: |
+          node --check pages/index/index.js
+          python3 -m json.tool app.json >/dev/null
+          python3 -m json.tool project.config.json >/dev/null
+          python3 -m json.tool sitemap.json >/dev/null
+
+      - name: Create latest code package
+        run: ./scripts/create-code-package.sh
+
+      - name: Upload latest code package
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventory-mini-program-latest
+          path: |
+            dist/inventory-mini-program-latest.zip
+            dist/BUILD_INFO.txt
+          if-no-files-found: error
