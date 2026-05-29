@@ -63,7 +63,6 @@ Page({
       { key: 'outbound', label: '出库记录' },
       { key: 'inbound', label: '入库记录' },
       { key: 'returnInbound', label: '退货入库记录' },
-      { key: 'warehouses', label: '仓库数量' },
       { key: 'channels', label: '渠道商款项' }
     ],
     activeTab: 'dashboard',
