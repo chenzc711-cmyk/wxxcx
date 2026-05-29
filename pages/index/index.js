@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'inventory-system-data-v2'
-const APP_VERSION = '最新版 2026-05-29'
+const STORAGE_KEY = 'warehouse-system-data'
+
 const CHANNEL_TYPES = [
   { key: 'normal', label: '普通渠道商' },
   { key: 'brand3w', label: '3W品牌渠道商' },
@@ -13,10 +13,13 @@ const RECORD_TITLES = {
 }
 
 const DEFAULT_DATA = {
-  categories: ['3W品牌', '台州伊文', '普通商品', '未分类'],
+  warehouses: [
+    { id: 'warehouse-main', name: '主仓', location: '默认仓库' },
+    { id: 'warehouse-taizhou', name: '台州仓', location: '台州区域' }
+  ],
   products: [
-    { id: 'product-1', name: '3W品牌洗护套装', spec: '500ml×2', category: '3W品牌', stock: 120, price: 89, warningLine: 30 },
-    { id: 'product-2', name: '伊文精品礼盒', spec: '礼盒装', category: '台州伊文', stock: 18, price: 168, warningLine: 20 }
+    { id: 'product-1', name: '3W品牌洗护套装', sku: '3W-SET-001', warehouseId: 'warehouse-main', stock: 120, price: 89, warningLine: 30 },
+    { id: 'product-2', name: '伊文精品礼盒', sku: 'YW-GIFT-001', warehouseId: 'warehouse-taizhou', stock: 18, price: 168, warningLine: 20 }
   ],
   channels: [
     { id: 'channel-1', name: '普通渠道 A', type: 'normal', balance: 5600 },
@@ -24,9 +27,9 @@ const DEFAULT_DATA = {
     { id: 'channel-3', name: '台州伊文代理', type: 'taizhouYiwen', balance: 9300 }
   ],
   records: [
-    { id: 'record-1', type: 'inbound', date: '2026-05-01', productName: '3W品牌洗护套装', spec: '500ml×2', supplier: '杭州供应商', quantity: 40, unitPrice: 82, amount: 3280, remark: '期初入库' },
-    { id: 'record-2', type: 'outbound', date: '2026-05-05', productName: '伊文精品礼盒', spec: '礼盒装', quantity: 6, unitPrice: 168, amount: 1008 },
-    { id: 'record-3', type: 'returnInbound', date: '2026-05-07', orderNo: 'TH20260507001', logisticsCompany: '顺丰速运', logisticsNo: 'SF1234567890', productName: '3W品牌洗护套装', spec: '500ml×2', quantity: 3, operator: '张三', unitPrice: 89, amount: 267, remark: '客户退货' }
+    { id: 'record-1', type: 'inbound', productId: 'product-1', productName: '3W品牌洗护套装', quantity: 40, remark: '期初入库', date: '2026-05-01 09:00' },
+    { id: 'record-2', type: 'outbound', productId: 'product-2', productName: '伊文精品礼盒', quantity: 6, remark: '渠道发货', date: '2026-05-05 15:30' },
+    { id: 'record-3', type: 'returnInbound', productId: 'product-1', productName: '3W品牌洗护套装', quantity: 3, remark: '客户退货', date: '2026-05-07 11:20' }
   ]
 }
 
@@ -47,28 +50,9 @@ function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`
 }
 
-function pad(num) {
-  return String(num).padStart(2, '0')
-}
-
 function formatDate(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
-function monthStart(dateText) {
-  return `${dateText.slice(0, 7)}-01`
-}
-
-function isDateInRange(dateText, startDate, endDate) {
-  if (!dateText) return false
-  if (startDate && dateText < startDate) return false
-  if (endDate && dateText > endDate) return false
-  return true
-}
-
-function getChannelLabel(type) {
-  const channelType = CHANNEL_TYPES.find((item) => item.key === type)
-  return channelType ? channelType.label : type
+  const pad = (num) => String(num).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 Page({
@@ -82,9 +66,7 @@ Page({
       { key: 'channels', label: '渠道商款项' }
     ],
     activeTab: 'dashboard',
-    appVersion: APP_VERSION,
-    currentDate: formatDate(new Date()),
-    categories: [],
+    warehouses: [],
     products: [],
     channels: [],
     records: [],
@@ -92,54 +74,35 @@ Page({
     channelSummaries: [],
     warningProducts: [],
     visibleRecords: [],
-    productSpecs: [],
-    categoryNames: [],
-    selectedCategoryName: '',
+    productNames: [],
+    warehouseNames: [],
+    selectedWarehouseName: '',
+    selectedProductName: '请先添加商品',
     selectedChannelTypeLabel: CHANNEL_TYPES[0].label,
     channelTypeLabels: CHANNEL_TYPES.map((item) => item.label),
     recordTitle: '',
     editingProductId: '',
     productForm: {
       name: '',
-      spec: '',
-      categoryIndex: 0,
+      sku: '',
+      warehouseIndex: 0,
       stock: '',
       price: '',
       warningLine: '10'
+    },
+    warehouseForm: {
+      name: '',
+      location: ''
     },
     channelForm: {
       name: '',
       typeIndex: 0,
       balance: ''
     },
-    inboundForm: {
-      date: formatDate(new Date()),
-      productName: '',
-      supplier: '',
+    recordForm: {
+      productIndex: 0,
       quantity: '',
-      unitPrice: '',
       remark: ''
-    },
-    outboundForm: {
-      date: formatDate(new Date()),
-      productName: '',
-      spec: '',
-      quantity: ''
-    },
-    returnForm: {
-      date: formatDate(new Date()),
-      orderNo: '',
-      logisticsCompany: '',
-      logisticsNo: '',
-      productName: '',
-      spec: '',
-      quantity: '',
-      operator: '',
-      remark: ''
-    },
-    recordFilter: {
-      startDate: monthStart(formatDate(new Date())),
-      endDate: formatDate(new Date())
     }
   },
 
@@ -154,18 +117,32 @@ Page({
   },
 
   refreshView() {
-    const today = this.data.currentDate
-    const currentMonthStart = monthStart(today)
-    const products = this.data.products.map((product) => ({
-      ...product,
-      amount: money(toNumber(product.stock) * toNumber(product.price)),
-      price: money(product.price)
+    const warehouses = this.data.warehouses.map((warehouse) => ({
+      ...warehouse,
+      stock: this.data.products
+        .filter((product) => product.warehouseId === warehouse.id)
+        .reduce((sum, product) => sum + toNumber(product.stock), 0)
     }))
-    const channels = this.data.channels.map((channel) => ({
-      ...channel,
-      typeLabel: getChannelLabel(channel.type),
-      balance: money(channel.balance)
-    }))
+
+    const products = this.data.products.map((product) => {
+      const warehouse = this.data.warehouses.find((item) => item.id === product.warehouseId)
+      return {
+        ...product,
+        warehouseName: warehouse ? warehouse.name : '未分配仓库',
+        amount: money(toNumber(product.stock) * toNumber(product.price)),
+        price: money(product.price)
+      }
+    })
+
+    const channels = this.data.channels.map((channel) => {
+      const channelType = CHANNEL_TYPES.find((item) => item.key === channel.type)
+      return {
+        ...channel,
+        typeLabel: channelType ? channelType.label : channel.type,
+        balance: money(channel.balance)
+      }
+    })
+
     const warningProducts = products.filter((product) => toNumber(product.stock) <= toNumber(product.warningLine))
     const channelSummaries = CHANNEL_TYPES.map((channelType) => {
       const scoped = this.data.channels.filter((channel) => channel.type === channelType.key)
@@ -176,89 +153,48 @@ Page({
         amount: money(scoped.reduce((sum, channel) => sum + toNumber(channel.balance), 0))
       }
     })
-    const records = this.data.records.map((record) => ({
-      ...record,
-      amount: money(record.amount),
-      unitPrice: record.unitPrice === undefined ? '' : money(record.unitPrice)
-    }))
-    const todayInbound = this.sumRecordsByDate('inbound', today, today)
-    const todayOutbound = this.sumRecordsByDate('outbound', today, today)
-    const monthInbound = this.sumRecordsByDate('inbound', currentMonthStart, today)
-    const monthOutbound = this.sumRecordsByDate('outbound', currentMonthStart, today)
     const totalAmount = this.data.products.reduce((sum, product) => sum + toNumber(product.stock) * toNumber(product.price), 0)
     const channelTotal = this.data.channels.reduce((sum, channel) => sum + toNumber(channel.balance), 0)
 
     this.setData({
+      warehouses,
       products,
       channels,
-      records,
       warningProducts,
       channelSummaries,
-      categoryNames: this.data.categories,
-      productSpecs: products.map((product) => `${product.name}｜${product.spec}`),
-      selectedCategoryName: this.data.categories[this.data.productForm.categoryIndex] || '未分类',
+      warehouseNames: warehouses.map((warehouse) => warehouse.name),
+      productNames: products.map((product) => product.name),
+      selectedWarehouseName: warehouses[this.data.productForm.warehouseIndex] ? warehouses[this.data.productForm.warehouseIndex].name : '请先添加仓库',
+      selectedProductName: products[this.data.recordForm.productIndex] ? products[this.data.recordForm.productIndex].name : '请先添加商品',
       selectedChannelTypeLabel: CHANNEL_TYPES[this.data.channelForm.typeIndex].label,
-      visibleRecords: records.filter((record) => record.type === this.data.activeTab && isDateInRange(record.date, this.data.recordFilter.startDate, this.data.recordFilter.endDate)),
+      visibleRecords: this.data.records.filter((record) => record.type === this.data.activeTab),
       recordTitle: RECORD_TITLES[this.data.activeTab] || '',
       dashboard: {
         totalStock: this.data.products.reduce((sum, product) => sum + toNumber(product.stock), 0),
         totalAmount: money(totalAmount),
         warningCount: warningProducts.length,
         productCount: this.data.products.length,
-        channelTotal: money(channelTotal),
-        todayInboundQuantity: todayInbound.quantity,
-        todayInboundAmount: money(todayInbound.amount),
-        todayOutboundQuantity: todayOutbound.quantity,
-        todayOutboundAmount: money(todayOutbound.amount),
-        monthInboundQuantity: monthInbound.quantity,
-        monthInboundAmount: money(monthInbound.amount),
-        monthOutboundQuantity: monthOutbound.quantity,
-        monthOutboundAmount: money(monthOutbound.amount),
-        monthTotalQuantity: monthInbound.quantity + monthOutbound.quantity,
-        monthTotalAmount: money(monthInbound.amount + monthOutbound.amount)
+        warehouseCount: warehouses.length,
+        channelTotal: money(channelTotal)
       }
     })
     this.persist()
   },
 
-  sumRecordsByDate(type, startDate, endDate) {
-    return this.data.records
-      .filter((record) => record.type === type && isDateInRange(record.date, startDate, endDate))
-      .reduce((sum, record) => ({
-        quantity: sum.quantity + toNumber(record.quantity),
-        amount: sum.amount + toNumber(record.amount)
-      }), { quantity: 0, amount: 0 })
-  },
-
   persist() {
     wx.setStorageSync(STORAGE_KEY, {
-      categories: this.data.categories,
-      products: this.data.products.map(({ id, name, spec, category, stock, price, warningLine }) => ({
+      warehouses: this.data.warehouses.map(({ id, name, location }) => ({ id, name, location })),
+      products: this.data.products.map(({ id, name, sku, warehouseId, stock, price, warningLine }) => ({
         id,
         name,
-        spec,
-        category,
+        sku,
+        warehouseId,
         stock: toNumber(stock),
         price: toNumber(price),
         warningLine: toNumber(warningLine)
       })),
       channels: this.data.channels.map(({ id, name, type, balance }) => ({ id, name, type, balance: toNumber(balance) })),
-      records: this.data.records.map(({ id, type, date, productName, spec, supplier, quantity, unitPrice, amount, remark, orderNo, logisticsCompany, logisticsNo, operator }) => ({
-        id,
-        type,
-        date,
-        productName,
-        spec,
-        supplier,
-        quantity: toNumber(quantity),
-        unitPrice: unitPrice === undefined ? undefined : toNumber(unitPrice),
-        amount: toNumber(amount),
-        remark,
-        orderNo,
-        logisticsCompany,
-        logisticsNo,
-        operator
-      }))
+      records: this.data.records
     })
   },
 
@@ -266,8 +202,8 @@ Page({
     this.setData({ [`productForm.${event.currentTarget.dataset.field}`]: event.detail.value })
   },
 
-  onCategoryPick(event) {
-    this.setData({ 'productForm.categoryIndex': Number(event.detail.value) }, () => this.refreshView())
+  onWarehousePick(event) {
+    this.setData({ 'productForm.warehouseIndex': Number(event.detail.value) }, () => this.refreshView())
   },
 
   resetProductForm() {
@@ -275,13 +211,13 @@ Page({
       editingProductId: '',
       productForm: {
         name: '',
-        spec: '',
-        categoryIndex: 0,
+        sku: '',
+        warehouseIndex: 0,
         stock: '',
         price: '',
         warningLine: '10'
       }
-    }, () => this.refreshView())
+    })
   },
 
   saveProduct() {
@@ -290,11 +226,12 @@ Page({
       wx.showToast({ title: '请填写商品名称', icon: 'none' })
       return
     }
+    const warehouse = this.data.warehouses[form.warehouseIndex] || this.data.warehouses[0]
     const nextProduct = {
       id: this.data.editingProductId || createId('product'),
       name: form.name.trim(),
-      spec: form.spec.trim() || '默认规格',
-      category: this.data.categories[form.categoryIndex] || '未分类',
+      sku: form.sku.trim() || '未填写编码',
+      warehouseId: warehouse ? warehouse.id : '',
       stock: toNumber(form.stock),
       price: toNumber(form.price),
       warningLine: toNumber(form.warningLine)
@@ -304,6 +241,7 @@ Page({
       : [nextProduct, ...this.data.products]
     this.setData({ products }, () => {
       this.resetProductForm()
+      this.refreshView()
       wx.showToast({ title: '商品已保存', icon: 'success' })
     })
   },
@@ -311,24 +249,41 @@ Page({
   editProduct(event) {
     const product = this.data.products.find((item) => item.id === event.currentTarget.dataset.id)
     if (!product) return
-    const categoryIndex = Math.max(0, this.data.categories.findIndex((category) => category === product.category))
+    const warehouseIndex = Math.max(0, this.data.warehouses.findIndex((warehouse) => warehouse.id === product.warehouseId))
     this.setData({
       editingProductId: product.id,
       productForm: {
         name: product.name,
-        spec: product.spec,
-        categoryIndex,
+        sku: product.sku,
+        warehouseIndex,
         stock: String(product.stock),
         price: String(toNumber(product.price)),
         warningLine: String(product.warningLine)
       }
-    }, () => this.refreshView())
+    })
   },
 
   deleteProduct(event) {
     const productId = event.currentTarget.dataset.id
     this.setData({
-      products: this.data.products.filter((product) => product.id !== productId)
+      products: this.data.products.filter((product) => product.id !== productId),
+      records: this.data.records.filter((record) => record.productId !== productId)
+    }, () => this.refreshView())
+  },
+
+  onWarehouseInput(event) {
+    this.setData({ [`warehouseForm.${event.currentTarget.dataset.field}`]: event.detail.value })
+  },
+
+  saveWarehouse() {
+    const form = this.data.warehouseForm
+    if (!form.name.trim()) {
+      wx.showToast({ title: '请填写仓库名称', icon: 'none' })
+      return
+    }
+    this.setData({
+      warehouses: [{ id: createId('warehouse'), name: form.name.trim(), location: form.location.trim() || '未填写位置' }, ...this.data.warehouses],
+      warehouseForm: { name: '', location: '' }
     }, () => this.refreshView())
   },
 
@@ -357,162 +312,47 @@ Page({
     }, () => this.refreshView())
   },
 
-  onInboundInput(event) {
-    this.setData({ [`inboundForm.${event.currentTarget.dataset.field}`]: event.detail.value })
+  onRecordProductPick(event) {
+    this.setData({ 'recordForm.productIndex': Number(event.detail.value) }, () => this.refreshView())
   },
 
-  onInboundDatePick(event) {
-    this.setData({ 'inboundForm.date': event.detail.value })
+  onRecordInput(event) {
+    this.setData({ [`recordForm.${event.currentTarget.dataset.field}`]: event.detail.value })
   },
 
-  onOutboundInput(event) {
-    this.setData({ [`outboundForm.${event.currentTarget.dataset.field}`]: event.detail.value })
-  },
-
-  onOutboundDatePick(event) {
-    this.setData({ 'outboundForm.date': event.detail.value })
-  },
-
-  onReturnInput(event) {
-    this.setData({ [`returnForm.${event.currentTarget.dataset.field}`]: event.detail.value })
-  },
-
-  onReturnDatePick(event) {
-    this.setData({ 'returnForm.date': event.detail.value })
-  },
-
-  onFilterDatePick(event) {
-    this.setData({ [`recordFilter.${event.currentTarget.dataset.field}`]: event.detail.value }, () => this.refreshView())
-  },
-
-  resetDateFilter() {
-    this.setData({
-      recordFilter: {
-        startDate: monthStart(this.data.currentDate),
-        endDate: this.data.currentDate
-      }
-    }, () => this.refreshView())
-  },
-
-  findProductByNameSpec(productName, spec) {
-    const exactProduct = this.data.products.find((product) => product.name === productName && product.spec === spec)
-    return exactProduct || this.data.products.find((product) => product.name === productName)
-  },
-
-  upsertStock(productName, spec, quantity, unitPrice) {
-    const found = this.findProductByNameSpec(productName, spec)
-    const finalSpec = spec || (found ? found.spec : '默认规格')
-    if (found) {
-      return this.data.products.map((product) => (
-        product.id === found.id
-          ? { ...product, stock: Math.max(0, toNumber(product.stock) + quantity), price: unitPrice || product.price }
-          : product
-      ))
-    }
-    if (quantity < 0) return this.data.products
-    return [{
-      id: createId('product'),
-      name: productName,
-      spec: finalSpec,
-      category: '未分类',
-      stock: quantity,
-      price: unitPrice,
-      warningLine: 10
-    }, ...this.data.products]
-  },
-
-  saveInbound() {
-    const form = this.data.inboundForm
-    const quantity = toNumber(form.quantity)
-    const unitPrice = toNumber(form.unitPrice)
-    if (!form.productName.trim() || quantity <= 0) {
-      wx.showToast({ title: '请填写商品和数量', icon: 'none' })
+  saveRecord() {
+    if (!this.data.products.length) {
+      wx.showToast({ title: '请先添加商品', icon: 'none' })
       return
     }
-    const product = this.findProductByNameSpec(form.productName.trim(), '')
-    const spec = product ? product.spec : '默认规格'
-    const record = {
-      id: createId('record'),
-      type: 'inbound',
-      date: form.date,
-      productName: form.productName.trim(),
-      spec,
-      supplier: form.supplier.trim() || '未填写供应商',
-      quantity,
-      unitPrice,
-      amount: quantity * unitPrice,
-      remark: form.remark.trim() || '无备注'
-    }
-    this.setData({
-      products: this.upsertStock(record.productName, spec, quantity, unitPrice),
-      records: [record, ...this.data.records],
-      inboundForm: { date: this.data.currentDate, productName: '', supplier: '', quantity: '', unitPrice: '', remark: '' }
-    }, () => {
-      this.refreshView()
-      wx.showToast({ title: '入库已保存', icon: 'success' })
-    })
-  },
-
-  saveOutbound() {
-    const form = this.data.outboundForm
+    const form = this.data.recordForm
     const quantity = toNumber(form.quantity)
-    if (!form.productName.trim() || !form.spec.trim() || quantity <= 0) {
-      wx.showToast({ title: '请填写商品规格和数量', icon: 'none' })
+    if (quantity <= 0) {
+      wx.showToast({ title: '请填写有效数量', icon: 'none' })
       return
     }
-    const product = this.findProductByNameSpec(form.productName.trim(), form.spec.trim())
-    const unitPrice = product ? toNumber(product.price) : 0
+    const product = this.data.products[form.productIndex] || this.data.products[0]
+    const type = this.data.activeTab
+    const signedQuantity = type === 'outbound' ? -quantity : quantity
+    const products = this.data.products.map((item) => (
+      item.id === product.id ? { ...item, stock: Math.max(0, toNumber(item.stock) + signedQuantity) } : item
+    ))
     const record = {
       id: createId('record'),
-      type: 'outbound',
-      date: form.date,
-      productName: form.productName.trim(),
-      spec: form.spec.trim(),
+      type,
+      productId: product.id,
+      productName: product.name,
       quantity,
-      unitPrice,
-      amount: quantity * unitPrice
+      remark: form.remark.trim() || '无备注',
+      date: formatDate(new Date())
     }
     this.setData({
-      products: this.upsertStock(record.productName, record.spec, -quantity, unitPrice),
+      products,
       records: [record, ...this.data.records],
-      outboundForm: { date: this.data.currentDate, productName: '', spec: '', quantity: '' }
+      recordForm: { productIndex: 0, quantity: '', remark: '' }
     }, () => {
       this.refreshView()
-      wx.showToast({ title: '出库已保存', icon: 'success' })
-    })
-  },
-
-  saveReturnInbound() {
-    const form = this.data.returnForm
-    const quantity = toNumber(form.quantity)
-    if (!form.date || !form.orderNo.trim() || !form.productName.trim() || !form.spec.trim() || quantity <= 0) {
-      wx.showToast({ title: '请补全退货信息', icon: 'none' })
-      return
-    }
-    const product = this.findProductByNameSpec(form.productName.trim(), form.spec.trim())
-    const unitPrice = product ? toNumber(product.price) : 0
-    const record = {
-      id: createId('record'),
-      type: 'returnInbound',
-      date: form.date,
-      orderNo: form.orderNo.trim(),
-      logisticsCompany: form.logisticsCompany.trim() || '未填写物流公司',
-      logisticsNo: form.logisticsNo.trim() || '未填写物流单号',
-      productName: form.productName.trim(),
-      spec: form.spec.trim(),
-      quantity,
-      operator: form.operator.trim() || '未填写操作人',
-      unitPrice,
-      amount: quantity * unitPrice,
-      remark: form.remark.trim() || '无备注'
-    }
-    this.setData({
-      products: this.upsertStock(record.productName, record.spec, quantity, unitPrice),
-      records: [record, ...this.data.records],
-      returnForm: { date: this.data.currentDate, orderNo: '', logisticsCompany: '', logisticsNo: '', productName: '', spec: '', quantity: '', operator: '', remark: '' }
-    }, () => {
-      this.refreshView()
-      wx.showToast({ title: '退货已保存', icon: 'success' })
+      wx.showToast({ title: '记录已保存', icon: 'success' })
     })
   }
 })
