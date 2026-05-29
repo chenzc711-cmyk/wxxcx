@@ -88,6 +88,7 @@
 .metric-card,
 .panel,
 .product-card,
+.warehouse-card,
 .channel-card,
 .record-card {
   border: 1rpx solid #e5e7eb;
@@ -110,14 +111,11 @@
   border-color: #fed7aa;
 }
 
-.metric-card--wide {
-  grid-column: 1 / -1;
-}
-
 .metric-card__label,
 .metric-card__hint,
 .channel-row__count,
 .product-card__meta,
+.warehouse-card__location,
 .channel-card__type,
 .record-card__meta {
   color: #6b7280;
@@ -142,6 +140,7 @@
 .product-card__main,
 .product-card__stats,
 .product-card__actions,
+.warehouse-card,
 .channel-card,
 .record-card,
 .warning-item,
@@ -165,7 +164,8 @@
 .channel-row__amount,
 .product-card__amount,
 .channel-card__balance,
-.record-card__qty {
+.record-card__qty,
+.warehouse-card__stock {
   color: #0f766e;
   font-weight: 800;
 }
@@ -183,32 +183,21 @@
 
 .channel-row__name,
 .product-card__name,
+.warehouse-card__name,
 .channel-card__name,
 .record-card__name {
   color: #111827;
   font-weight: 800;
 }
 
-.form-panel,
-.filter-panel {
+.form-panel {
   margin-bottom: 24rpx;
-}
-
-.filter-panel__title {
-  margin-bottom: 18rpx;
-  color: #111827;
-  font-size: 28rpx;
-  font-weight: 800;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18rpx;
-}
-
-.field--full {
-  grid-column: 1 / -1;
 }
 
 .field {
@@ -269,6 +258,7 @@
 }
 
 .product-card,
+.warehouse-card,
 .channel-card,
 .record-card {
   margin-bottom: 18rpx;
